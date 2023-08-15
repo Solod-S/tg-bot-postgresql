@@ -1,4 +1,6 @@
 const TelegramBot = require("node-telegram-bot-api");
+const { gameOptions, againOptions } = require("./options");
+const { sequelize } = require("./db");
 const dotenv = require("dotenv");
 dotenv.config();
 const { TOKEN, PORT } = process.env;
@@ -7,30 +9,24 @@ const bot = new TelegramBot(TOKEN, { polling: true });
 
 const chats = {};
 
-const gameOptions = {
-  reply_markup: JSON.stringify({
-    inline_keyboard: [
-      [
-        { text: "0", callback_data: "0" },
-        { text: "1", callback_data: "1" },
-        { text: "2", callback_data: "2" },
-      ],
-      [
-        { text: "3", callback_data: "3" },
-        { text: "4", callback_data: "4" },
-        { text: "5", callback_data: "5" },
-      ],
-      [
-        { text: "6", callback_data: "6" },
-        { text: "7", callback_data: "7" },
-        { text: "8", callback_data: "8" },
-      ],
-      [{ text: "9", callback_data: "9" }],
-    ],
-  }),
+const startGame = async (chatId) => {
+  await bot.sendMessage(
+    chatId,
+    "Сейчас я загадаю цифру от 0 до 9, а ты отгадай!"
+  );
+  const randomNumber = Math.floor(Math.floor(Math.random() * 10));
+  chats[chatId] = randomNumber;
+  console.log(randomNumber);
+  await bot.sendMessage(chatId, "Отгадай", gameOptions);
 };
 
-const start = () => {
+const start = async () => {
+  try {
+    // await sequelize.authenticate();
+    // await sequelize.sync();
+  } catch (error) {
+    console.log(error.message, `ОШИБКА`);
+  }
   bot.setMyCommands([
     { command: "/start", description: "Начальное приветствие" },
     { command: "/info", description: "Получить информацию о пользователе" },
@@ -54,14 +50,7 @@ const start = () => {
     }
 
     if (text === "/game") {
-      await bot.sendMessage(
-        chatId,
-        "Сейчас я загадаю цифру от 0 до 9, а ты отгадай!"
-      );
-      const randomNumber = Math.floor(Math.floor(Math.random() * 10));
-      chats[chatId] = randomNumber;
-      console.log(randomNumber);
-      return bot.sendMessage(chatId, "Отгадай", gameOptions);
+      return startGame(chatId);
     }
 
     return bot.sendMessage(chatId, "Я тебя не понимаю");
@@ -70,11 +59,16 @@ const start = () => {
   bot.on("callback_query", async (msg) => {
     const data = msg.data;
     const chatId = msg.message.chat.id;
-    console.log(data, chats[chatId]);
+
+    if (data === "/again") {
+      return startGame(chatId);
+    }
+
     if (data == chats[chatId]) {
       return bot.sendMessage(
         chatId,
-        `Вы нажали ${data} и отгадали загаданую цифру`
+        `Вы нажали ${data} и отгадали загаданую цифру`,
+        againOptions
       );
     } else {
       return bot.sendMessage(
